@@ -1,0 +1,20 @@
+description 'DCAE Analytics Test Support'
+
+dependencies {
+
+    compile("org.mockito:mockito-core:${ver.mockito}")
+    compile("com.jayway.jsonpath:json-path-assert:${ver.jayway_jsonpath}")
+    compile("org.skyscreamer:jsonassert:${ver.jsonassert}")
+    compile("org.junit.jupiter:junit-jupiter-api:${ver.junit_jupiter}")
+    compile("ch.qos.logback:logback-classic:${ver.logback}")
+    compile('org.apiguardian:apiguardian-api:1.0.0')
+
+    runtime("org.junit.jupiter:junit-jupiter-engine:${ver.junit_jupiter}")
+    runtime("org.junit.platform:junit-platform-runner:${ver.junit_platform}")
+    runtime("org.junit.platform:junit-platform-launcher:${ver.junit_platform}")
+    runtime("org.junit.vintage:junit-vintage-engine:${ver.junit_vintage}")
+
+}
+
+
+

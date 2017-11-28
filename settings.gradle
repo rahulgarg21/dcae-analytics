@@ -1,0 +1,7 @@
+// ========== ROOT PROJECT SETTINGS ========== //
+rootProject.name = 'dcae-analytics'
+
+// ========== CHILD PROJECTS ========== //
+include 'dcae-analytics-test'
+include 'dcae-analytics-model'
+

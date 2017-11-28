@@ -1,0 +1,29 @@
+description 'DCAE Analytics Model'
+
+buildscript {
+    repositories {
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+    dependencies {
+        classpath "io.franzbecker:gradle-lombok:1.11"
+    }
+}
+
+apply plugin: 'io.franzbecker.gradle-lombok'
+
+
+dependencies {
+
+    compile("com.fasterxml.jackson.core:jackson-databind:${ver.jackson_json}")
+    compile("com.google.guava:guava:${ver.guava}")
+    compile("com.jayway.jsonpath:json-path:${ver.json_path}")
+
+    compileOnly("org.slf4j:slf4j-api:${ver.slf4j}")
+    compileOnly("com.google.code.findbugs:jsr305:${ver.findbugs_jsr305}")
+    compileOnly("com.google.code.findbugs:annotations:${ver.findbugs_annotations}")
+
+    testCompile(project(':dcae-analytics-test'))
+}
+

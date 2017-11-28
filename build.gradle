@@ -1,0 +1,209 @@
+buildscript {
+    repositories {
+        maven { url 'http://repo.spring.io/plugins-release' }
+    }
+    dependencies {
+        classpath 'io.spring.gradle:propdeps-plugin:0.0.9.RELEASE'
+        classpath 'org.junit.platform:junit-platform-gradle-plugin:1.0.2'
+    }
+}
+
+
+def mavenHome = "${System.getProperty('user.home')}/.m2/repository"
+
+// =========== ALL PROJECTS SETTINGS ========== //
+configure(allprojects) { project ->
+
+    group 'org.onap.dcaegen2.analytics'
+    version '1.0-SNAPSHOT'
+
+    apply from: "$rootDir/dependencies.gradle"
+    apply plugin: 'java'
+    apply plugin: "propdeps"
+    apply plugin: 'propdeps-maven'
+    apply plugin: 'propdeps-idea'
+    apply plugin: 'propdeps-eclipse'
+    apply plugin: 'maven-publish'
+
+    configurations.all {
+        // Check for updates every build
+        resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+    }
+
+    def commonCompilerArgs =
+            ["-Xlint:serial", "-Xlint:cast", "-Xlint:classfile", "-Xlint:dep-ann",
+             "-Xlint:divzero", "-Xlint:empty", "-Xlint:finally", "-Xlint:overrides",
+             "-Xlint:path", "-Xlint:-processing", "-Xlint:static", "-Xlint:try", "-Xlint:-options"]
+
+    compileJava.options*.compilerArgs = commonCompilerArgs +
+            ["-Xlint:varargs", "-Xlint:fallthrough", "-Xlint:rawtypes",
+             "-Xlint:deprecation", "-Xlint:unchecked", "-Werror"]
+
+    compileTestJava.options*.compilerArgs = commonCompilerArgs +
+            ["-Xlint:-varargs", "-Xlint:-fallthrough", "-Xlint:-rawtypes",
+             "-Xlint:-deprecation", "-Xlint:-unchecked"]
+
+    compileJava {
+        sourceCompatibility = 1.8
+        targetCompatibility = 1.8
+        options.encoding = 'UTF-8'
+    }
+
+    compileTestJava {
+        sourceCompatibility = 1.8
+        targetCompatibility = 1.8
+        options.encoding = 'UTF-8'
+        options.compilerArgs += "-parameters"
+    }
+
+
+    test {
+        systemProperty("java.awt.headless", "true")
+        scanForTestClasses = false
+        include(["**/*Tests.class", "**/*Test.class"])
+        exclude(["**/Abstract*.class", '**/*$*'])
+        reports.junitXml.setDestination(file("$buildDir/test-results"))
+    }
+
+    repositories {
+        jcenter()
+        mavenCentral()
+    }
+
+}
+// =========== ALL SUB-PROJECTS SETTINGS ========== //
+configure(subprojects) { subproject ->
+
+    apply plugin: 'org.junit.platform.gradle.plugin'
+    apply plugin: 'checkstyle'
+    apply plugin: 'findbugs'
+    apply plugin: 'pmd'
+
+    jar {
+        manifest.attributes["Implementation-Title"] = subproject.name
+        manifest.attributes["Implementation-Version"] = subproject.version
+        manifest.attributes["Automatic-Module-Name"] = subproject.name.replace('-', '.')  // for Jigsaw
+        manifest.attributes["Created-By"] =
+                "${System.getProperty("java.version")} (${System.getProperty("java.specification.vendor")})"
+    }
+
+    javadoc {
+        description = "Generates project-level javadoc for use in -javadoc jar"
+
+        options.memberLevel = org.gradle.external.javadoc.JavadocMemberLevel.PROTECTED
+        options.author = true
+        options.header = project.name
+        options.use = true
+        options.addStringOption('Xdoclint:none', '-quiet')
+
+        // Suppress warnings due to cross-module @see and @link references.
+        // Note that global 'api' task does display all warnings.
+        logging.captureStandardError LogLevel.INFO
+        logging.captureStandardOutput LogLevel.INFO  // suppress "## warnings" message
+    }
+
+    task sourcesJar(type: Jar, dependsOn: classes) {
+        classifier = 'sources'
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        from sourceSets.main.allSource
+    }
+
+    task javadocJar(type: Jar) {
+        classifier = "javadoc"
+        from javadoc
+    }
+
+    artifacts {
+        archives sourcesJar
+        archives javadocJar
+    }
+
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                from components.java
+
+                artifact sourcesJar
+                artifact javadocJar
+            }
+        }
+
+        repositories {
+            maven {
+                url mavenHome
+            }
+        }
+    }
+
+    checkstyle {
+        configDir = rootProject.file("config/checkstyle")
+    }
+
+    tasks.withType(Checkstyle) {
+        reports {
+            xml.enabled = true
+            html.enabled = true
+        }
+    }
+
+    findbugs {
+        sourceSets = [sourceSets.main]
+        ignoreFailures = false
+        reportsDir = file("$project.buildDir/reports/findbugs")
+        effort = "max"
+        showProgress = true
+        reportLevel = "high"
+        visitors = ["FindSqlInjection", "SwitchFallthrough"]
+        excludeFilter = file("$rootProject.projectDir/config/findbugs/exclude-filter.xml")
+    }
+
+    pmd {
+        sourceSets = [sourceSets.main]
+        consoleOutput = true
+        ignoreFailures = false
+        reportsDir = file("$project.buildDir/reports/pmd")
+        ruleSets = [
+                'java-basic',
+                'java-braces',
+                'java-clone',
+                'java-empty',
+                'java-finalizers',
+                'java-imports',
+                'java-j2ee',
+                'java-logging-java',
+                'java-optimizations',
+                'java-strictexception',
+                'java-strings',
+                'java-sunsecure',
+                'java-typeresolution',
+                'java-unnecessary',
+                'java-unusedcode'
+        ]
+    }
+
+    tasks.withType(FindBugs) {
+        reports {
+            xml.enabled = false
+            html.enabled = true
+        }
+    }
+
+    clean.doLast {
+        file("out").deleteDir()
+    }
+
+}
+
+configure(rootProject) {
+
+    description = 'DCAE Analytics Application Platform'
+
+    // don't publish the default jar for the root project
+    configurations.archives.artifacts.clear()
+
+}
+
+
+
+
+
