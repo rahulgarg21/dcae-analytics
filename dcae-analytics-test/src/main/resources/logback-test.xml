@@ -19,7 +19,7 @@
   ~  limitations under the License.
   ~  ============================LICENSE_END===========================================
   -->
-<configuration debug="true">
+<configuration>
 
     <!--
       Disabling some chatty loggers.

@@ -15,7 +15,6 @@ def mavenHome = "${System.getProperty('user.home')}/.m2/repository"
 configure(allprojects) { project ->
 
     group 'org.onap.dcaegen2.analytics'
-    version '1.0-SNAPSHOT'
 
     apply from: "$rootDir/dependencies.gradle"
     apply plugin: 'java'
@@ -24,6 +23,7 @@ configure(allprojects) { project ->
     apply plugin: 'propdeps-idea'
     apply plugin: 'propdeps-eclipse'
     apply plugin: 'maven-publish'
+    apply plugin: 'idea'
 
     configurations.all {
         // Check for updates every build
@@ -70,6 +70,12 @@ configure(allprojects) { project ->
         mavenCentral()
     }
 
+    idea {
+        module {
+            downloadJavadoc = true
+            downloadSources = true
+        }
+    }
 }
 // =========== ALL SUB-PROJECTS SETTINGS ========== //
 configure(subprojects) { subproject ->
@@ -78,6 +84,7 @@ configure(subprojects) { subproject ->
     apply plugin: 'checkstyle'
     apply plugin: 'findbugs'
     apply plugin: 'pmd'
+    apply plugin: 'jacoco'
 
     jar {
         manifest.attributes["Implementation-Title"] = subproject.name
@@ -151,10 +158,16 @@ configure(subprojects) { subproject ->
         ignoreFailures = false
         reportsDir = file("$project.buildDir/reports/findbugs")
         effort = "max"
-        showProgress = true
+        showProgress = false
         reportLevel = "high"
-        visitors = ["FindSqlInjection", "SwitchFallthrough"]
         excludeFilter = file("$rootProject.projectDir/config/findbugs/exclude-filter.xml")
+    }
+
+    tasks.withType(FindBugs) {
+        reports {
+            xml.enabled = false
+            html.enabled = true
+        }
     }
 
     pmd {
@@ -181,11 +194,45 @@ configure(subprojects) { subproject ->
         ]
     }
 
-    tasks.withType(FindBugs) {
-        reports {
-            xml.enabled = false
-            html.enabled = true
+    junitPlatform {
+        reportsDir = file("$project.buildDir/reports/junit")
+
+        filters {
+            includeClassNamePatterns '.*Test', '.*Tests'
         }
+    }
+
+    afterEvaluate {
+        def junitPlatformTestTask = tasks.getByName('junitPlatformTest')
+
+        jacoco {
+            toolVersion = "0.7.9"
+            reportsDir = file("${project.buildDir}/reports/jacoco")
+            applyTo junitPlatformTestTask
+        }
+
+        project.task(type: JacocoReport, 'jacocoUnitTestReport', {
+            dependsOn('junitPlatformTest')
+            sourceSets  sourceSets.main
+            sourceDirectories = files(sourceSets.main.allSource.srcDirs)
+            def outputDirectories = files(sourceSets.main.output)
+            classDirectories = files(outputDirectories.files.collect { fileTree(
+                        dir: it,
+                        exclude: ['**/test/**', '**/config/**', '**/domain/**', '**/facade/**',
+                        '**/*Test*.*', '**/*Mixin.*'])
+            })
+            additionalSourceDirs = files(sourceSets.main.allSource.srcDirs)
+            executionData junitPlatformTestTask
+        })
+
+        tasks.withType(JacocoReport) {
+            reports {
+                xml.enabled = false
+                html.enabled = true
+                html.destination file("${buildDir}/reports/jacoco/html")
+            }
+        }
+
     }
 
     clean.doLast {
@@ -200,6 +247,23 @@ configure(rootProject) {
 
     // don't publish the default jar for the root project
     configurations.archives.artifacts.clear()
+
+
+    task wrapper(type: Wrapper) {
+        description = "Generates gradlew[.bat] scripts"
+        gradleVersion = '4.3.1'
+
+        doLast() {
+            def gradleOpts = "-XX:MaxMetaspaceSize=1024m -Xmx1024m"
+            def gradleBatOpts = "$gradleOpts -XX:MaxHeapSize=256m"
+            File wrapperFile = file("gradlew")
+            wrapperFile.text = wrapperFile.text.replace("DEFAULT_JVM_OPTS=",
+                    "GRADLE_OPTS=\"$gradleOpts \$GRADLE_OPTS\"\nDEFAULT_JVM_OPTS=")
+            File wrapperBatFile = file("gradlew.bat")
+            wrapperBatFile.text = wrapperBatFile.text.replace("set DEFAULT_JVM_OPTS=",
+                    "set GRADLE_OPTS=$gradleBatOpts %GRADLE_OPTS%\nset DEFAULT_JVM_OPTS=")
+        }
+    }
 
 }
 
